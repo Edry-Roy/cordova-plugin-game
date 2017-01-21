@@ -131,7 +131,19 @@ module.exports = {
 			if (self.onGetPlayerImageFailed)			
 				self.onGetPlayerImageFailed();
 		}, "Game", "getPlayerImage", []);
-	},	
+	},
+	getPlayerBase64Image: function () {
+		var self = this;
+		cordova.exec(function (result) {
+				var playerImageString = result;
+				if (self.onGetPlayerBase64ImageSucceeded)
+					self.onGetPlayerBase64ImageSucceeded(playerImageString);
+			},
+			function (error) {
+				if (self.onGetPlayerBase64ImageFailed)
+					self.onGetPlayerBase64ImageFailed();
+			}, "Game", "getPlayerBase64Image", []);
+	},
 	onLoginSucceeded: null,
 	onLoginFailed: null,	
 	onSubmitScoreSucceeded: null,
@@ -145,5 +157,7 @@ module.exports = {
 	onResetAchievementsSucceeded: null,
 	onResetAchievementsFailed: null,
 	onGetPlayerImageSucceeded: null,
-	onGetPlayerImageFailed: null
+	onGetPlayerImageFailed: null,
+	onGetPlayerBase64ImageSucceeded: null,
+	onGetPlayerBase64ImageFailed: null
 };

@@ -35,6 +35,17 @@ import com.google.android.gms.games.Player;
 import android.net.Uri;
 import com.google.android.gms.games.leaderboard.LeaderboardVariant;
 
+//PlayerImage to Base64 String
+import com.google.android.gms.common.images.ImageManager;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.Color;
+import java.io.ByteArrayOutputStream;
+import android.util.Base64;
+
 //Util
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -56,11 +67,12 @@ class Util {
 	}	
 }
 
-public class Game extends CordovaPlugin implements GameHelper.GameHelperListener{
+public class Game extends CordovaPlugin implements GameHelper.GameHelperListener,ImageManager.OnImageLoadedListener{
 	private String LOG_TAG = "Game";
 	private GameHelper mHelper;
 	private CallbackContext loginCC;
 	private CallbackContext getPlayerImageCC;
+	private CallbackContext getPlayerBase64ImageCC;
 	private CallbackContext getPlayerScoreCC;
 	private CallbackContext submitScoreCC;
 	private CallbackContext unlockAchievementCC;		
@@ -222,6 +234,29 @@ public class Game extends CordovaPlugin implements GameHelper.GameHelperListener
 			
 			return true;
 		}
+        else if (action.equals("getPlayerBase64Image")) {
+            //Activity activity=cordova.getActivity();
+            //webView
+            //
+
+            getPlayerBase64ImageCC = callbackContext;
+
+            final CallbackContext delayedCC = callbackContext;
+            cordova.getActivity().runOnUiThread(new Runnable(){
+                @Override
+                public void run() {
+                    if (getGameHelper().isSignedIn()) {
+                        _getPlayerBase64Image();
+                    }
+                    else {
+                        PluginResult pr = new PluginResult(PluginResult.Status.ERROR, "Not logged in");
+                        delayedCC.sendPluginResult(pr);
+                    }
+                }
+            });
+
+            return true;
+        }
 		else if (action.equals("getPlayerScore")) {
 			//Activity activity=cordova.getActivity();
 			//webView
@@ -528,7 +563,65 @@ public class Game extends CordovaPlugin implements GameHelper.GameHelperListener
 			getPlayerImageCC.sendPluginResult(pr);					
 		}
 	}
-	
+
+    @Override
+    public void onImageLoaded(Uri uri, Drawable drawable, boolean isRequestedDrawable) {
+        try {
+            Bitmap bm = null;
+            if (((BitmapDrawable)drawable).getBitmap() != null) {
+                bm = ((BitmapDrawable)drawable).getBitmap();
+                bm = Bitmap.createScaledBitmap(bm, 200, 200, true);
+                ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                bm.compress(Bitmap.CompressFormat.JPEG, 70, stream);
+                byte[] byteArray = stream.toByteArray();
+                String encodedImage = Base64.encodeToString(byteArray, Base64.NO_WRAP);
+                PluginResult pr = new PluginResult(PluginResult.Status.OK, encodedImage);
+                getPlayerBase64ImageCC.sendPluginResult(pr);
+            } else {
+                PluginResult pr = new PluginResult(PluginResult.Status.ERROR);
+                getPlayerBase64ImageCC.sendPluginResult(pr);
+            }
+        } catch (Exception e) {
+             PluginResult pr = new PluginResult(PluginResult.Status.ERROR);
+             getPlayerBase64ImageCC.sendPluginResult(pr);
+        }
+    }
+
+    private void _getPlayerBase64Image() {
+        Player player = Games.Players.getCurrentPlayer(getGameHelper().getApiClient());
+        if (player != null)
+        {
+            boolean hasH = player.hasHiResImage();
+            boolean hasI = player.hasIconImage();
+            Uri playerImageUrl = null;
+            if (hasH) {
+                playerImageUrl = player.getHiResImageUri();
+            }
+            else if (hasI) {
+                playerImageUrl = player.getIconImageUri();
+            }
+            else {
+                PluginResult pr = new PluginResult(PluginResult.Status.ERROR);
+                getPlayerBase64ImageCC.sendPluginResult(pr);
+
+                return;
+            }
+
+            if (playerImageUrl != null) {
+                ImageManager im = ImageManager.create(this.cordova.getActivity().getApplicationContext());					//pr.setKeepCallback(true);
+                im.loadImage(this, playerImageUrl);
+            }
+            else {
+                PluginResult pr = new PluginResult(PluginResult.Status.ERROR);
+                getPlayerBase64ImageCC.sendPluginResult(pr);
+            }
+        }
+        else {
+            PluginResult pr = new PluginResult(PluginResult.Status.ERROR);
+            getPlayerBase64ImageCC.sendPluginResult(pr);
+        }
+    }
+
 	private void _getPlayerScore(String leaderboardId){
 		class ResultCallbackSubmitScoreResult implements ResultCallback<Leaderboards.LoadPlayerScoreResult> {
             @Override
